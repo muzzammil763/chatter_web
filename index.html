@@ -548,28 +548,23 @@
             try {
                 console.log('Starting signup process...');
 
-                // First sign up with auth
+                // Sign up with auth - using signUp with email confirmation disabled
                 const { data: authData, error: authError } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
                         data: {
                             name: email.split('@')[0]
-                        }
+                        },
+                        emailRedirectTo: window.location.origin // This is optional but good to have
                     }
                 });
+
                 console.log('Auth signup response:', authData);
 
                 if (authError) throw authError;
 
                 if (authData.user) {
-                    // Check if email confirmation is required
-                    if (authData.session === null) {
-                        alert('Please check your email for confirmation link to complete registration!');
-                        elements.registerButton.textContent = 'Check Email to Confirm';
-                        return;
-                    }
-
                     console.log('User created, inserting profile...');
 
                     const { data: userData, error: userError } = await supabase
@@ -582,19 +577,10 @@
 
                     if (userError) {
                         console.error('User insert error:', userError);
-                        // If insert fails, still show confirmation message if needed
-                        if (!authData.session) {
-                            alert('Please check your email for confirmation link to complete registration!');
-                            return;
-                        }
                         throw userError;
                     }
 
                     console.log('Profile created successfully:', userData);
-
-                    if (!authData.session) {
-                        alert('Please check your email for confirmation link to complete registration!');
-                    }
                 } else {
                     throw new Error('No user data returned from signup');
                 }
