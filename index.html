@@ -469,19 +469,31 @@
         function showUsers() { showScreen('users'); }
         function showProfile() { showScreen('profile'); }
 
-        // Authentication Handlers
         elements.loginButton.addEventListener('click', async () => {
             const email = elements.emailInput.value;
             const password = elements.passwordInput.value;
 
             try {
+                elements.loginButton.disabled = true;
+                elements.loginButton.textContent = 'Signing in...';
+
                 const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password
                 });
+
                 if (error) throw error;
+
+                // Clear inputs
+                elements.emailInput.value = '';
+                elements.passwordInput.value = '';
+
             } catch (error) {
+                console.error('Login error:', error);
                 alert(error.message);
+            } finally {
+                elements.loginButton.disabled = false;
+                elements.loginButton.textContent = 'Sign In';
             }
         });
 
@@ -489,8 +501,13 @@
 
         // Auth State Observer
         supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth state changed:', event, session);
+
             if (session) {
                 currentUser = session.user;
+                // Store session in localStorage
+                localStorage.setItem('supabase.auth.token', session.access_token);
+
                 await loadUserProfile();
                 await loadUsers();
                 setupMessaging();
@@ -500,10 +517,10 @@
                 if (messageSubscription) {
                     messageSubscription.unsubscribe();
                 }
+                localStorage.removeItem('supabase.auth.token');
                 showAuth();
             }
         });
-
         // Profile Management
         async function loadUserProfile() {
             try {
@@ -535,39 +552,29 @@
             const email = elements.emailInput.value;
             const password = elements.passwordInput.value;
 
-            // Input validation
             if (!email || !password) {
                 alert('Please enter both email and password');
                 return;
             }
 
-            // Disable button during signup
-            elements.registerButton.disabled = true;
-            elements.registerButton.textContent = 'Creating Account...';
-
             try {
-                console.log('Starting signup process...');
+                elements.registerButton.disabled = true;
+                elements.registerButton.textContent = 'Creating Account...';
 
-                // Sign up with auth - using signUp with email confirmation disabled
+                // Sign up with auth
                 const { data: authData, error: authError } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
-                        data: {
-                            name: email.split('@')[0]
-                        },
-                        emailRedirectTo: window.location.origin // This is optional but good to have
+                        data: { name: email.split('@')[0] }
                     }
                 });
-
-                console.log('Auth signup response:', authData);
 
                 if (authError) throw authError;
 
                 if (authData.user) {
-                    console.log('User created, inserting profile...');
-
-                    const { data: userData, error: userError } = await supabase
+                    // Insert into users table
+                    const { error: userError } = await supabase
                         .from('users')
                         .insert([{
                             id: authData.user.id,
@@ -575,20 +582,16 @@
                             name: email.split('@')[0],
                         }]);
 
-                    if (userError) {
-                        console.error('User insert error:', userError);
-                        throw userError;
-                    }
+                    if (userError) throw userError;
 
-                    console.log('Profile created successfully:', userData);
-                } else {
-                    throw new Error('No user data returned from signup');
+                    // Clear inputs
+                    elements.emailInput.value = '';
+                    elements.passwordInput.value = '';
                 }
             } catch (error) {
                 console.error('Signup error:', error);
                 alert(error.message);
             } finally {
-                // Reset button state
                 elements.registerButton.disabled = false;
                 elements.registerButton.textContent = 'Create Account';
             }
@@ -687,39 +690,54 @@
             loadMessages();
         }
 
-        function setupMessaging() {
+        async function setupMessaging() {
+            // Remove any existing listeners to prevent duplicates
+            elements.sendButton.removeEventListener('click', sendMessage);
+            elements.messageInput.removeEventListener('keypress', handleEnterKey);
+
             elements.sendButton.addEventListener('click', sendMessage);
-            elements.messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
+            elements.messageInput.addEventListener('keypress', handleEnterKey);
+        }
+
+        function handleEnterKey(e) {
+            if (e.key === 'Enter') sendMessage();
         }
 
         async function sendMessage() {
             if (!selectedUser || !elements.messageInput.value.trim()) return;
 
             try {
+                const messageText = elements.messageInput.value.trim();
+                elements.messageInput.value = ''; // Clear input immediately
+
                 const message = {
                     chat_id: getChatId(currentUser.id, selectedUser.id),
                     sender_id: currentUser.id,
-                    text: elements.messageInput.value.trim(),
+                    text: messageText,
+                    created_at: new Date().toISOString()
                 };
+
+                // Optimistically add message to UI
+                const messageElement = createMessageElement(message);
+                elements.messagesContainer.appendChild(messageElement);
+                elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
 
                 const { error } = await supabase
                     .from('messages')
                     .insert([message]);
 
                 if (error) throw error;
-                elements.messageInput.value = '';
             } catch (error) {
                 console.error('Error sending message:', error);
                 alert('Error sending message: ' + error.message);
             }
         }
-
         async function loadMessages() {
-            // Unsubscribe from previous subscription if exists
+            if (!selectedUser) return;
+
+            // Unsubscribe from previous subscription
             if (messageSubscription) {
-                messageSubscription.unsubscribe();
+                await messageSubscription.unsubscribe();
             }
 
             const chatId = getChatId(currentUser.id, selectedUser.id);
@@ -742,9 +760,9 @@
 
                 elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
 
-                // Subscribe to new messages
+                // Set up real-time subscription
                 messageSubscription = supabase
-                    .channel('messages')
+                    .channel(`chat:${chatId}`)
                     .on('postgres_changes',
                         {
                             event: 'INSERT',
@@ -752,13 +770,18 @@
                             table: 'messages',
                             filter: `chat_id=eq.${chatId}`
                         },
-                        payload => {
-                            const messageElement = createMessageElement(payload.new);
-                            elements.messagesContainer.appendChild(messageElement);
-                            elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+                        (payload) => {
+                            console.log('New message received:', payload);
+                            if (payload.new.sender_id !== currentUser.id) {
+                                const messageElement = createMessageElement(payload.new);
+                                elements.messagesContainer.appendChild(messageElement);
+                                elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+                            }
                         }
                     )
-                    .subscribe();
+                    .subscribe((status) => {
+                        console.log('Subscription status:', status);
+                    });
 
             } catch (error) {
                 console.error('Error loading messages:', error);
