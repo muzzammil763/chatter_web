@@ -341,7 +341,6 @@
 </head>
 
 <body>
-    <!-- Auth Screen -->
     <div id="authScreen" class="screen auth-screen">
         <div class="auth-container">
             <div class="auth-logo">
@@ -364,7 +363,6 @@
         </div>
     </div>
 
-    <!-- Chat Screen -->
     <div id="chatScreen" class="screen">
         <div class="chat-header">
             <div class="chat-user-info">
@@ -389,7 +387,6 @@
         </div>
     </div>
 
-    <!-- Users Screen -->
     <div id="usersScreen" class="screen users-screen">
         <div class="users-header">
             <h2>All Users</h2>
@@ -400,7 +397,6 @@
         <div class="users-list" id="usersList"></div>
     </div>
 
-    <!-- Profile Screen -->
     <div id="profileScreen" class="screen profile-screen">
         <div class="profile-header">
             <h2>Profile</h2>
@@ -421,14 +417,12 @@
 
     <script>
         console.log('Initializing app...');
-        // Initialize Supabase Client
         const supabaseUrl = 'https://ugqokfdfjlatstubcqzj.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncW9rZmRmamxhdHN0dWJjcXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI4ODE0MDQsImV4cCI6MjA0ODQ1NzQwNH0.D4vXekLD3QB1dwu0zhbW9iqAnwMnC4_l9ldkJjYoXxo';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         console.log('Supabase initialized:', supabase);
 
-        // DOM Elements
         const screens = {
             auth: document.getElementById('authScreen'),
             chat: document.getElementById('chatScreen'),
@@ -451,12 +445,10 @@
             imageInput: document.getElementById('imageInput')
         };
 
-        // Global State
         let currentUser = null;
         let selectedUser = null;
         let messageSubscription = null;
 
-        // Screen Management
         function showScreen(screenId) {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
             screens[screenId].classList.add('active');
@@ -483,8 +475,6 @@
                 });
 
                 if (error) throw error;
-
-                // Clear inputs
                 elements.emailInput.value = '';
                 elements.passwordInput.value = '';
 
@@ -498,14 +488,11 @@
         });
 
 
-
-        // Auth State Observer
         supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('Auth state changed:', event, session);
 
             if (session) {
                 currentUser = session.user;
-                // Store session in localStorage
                 localStorage.setItem('supabase.auth.token', session.access_token);
 
                 await loadUserProfile();
@@ -521,7 +508,6 @@
                 showAuth();
             }
         });
-        // Profile Management
         async function loadUserProfile() {
             try {
                 const { data: profile, error } = await supabase
@@ -561,7 +547,6 @@
                 elements.registerButton.disabled = true;
                 elements.registerButton.textContent = 'Creating Account...';
 
-                // Sign up with auth
                 const { data: authData, error: authError } = await supabase.auth.signUp({
                     email,
                     password,
@@ -573,7 +558,6 @@
                 if (authError) throw authError;
 
                 if (authData.user) {
-                    // Insert into users table
                     const { error: userError } = await supabase
                         .from('users')
                         .insert([{
@@ -584,7 +568,6 @@
 
                     if (userError) throw userError;
 
-                    // Clear inputs
                     elements.emailInput.value = '';
                     elements.passwordInput.value = '';
                 }
@@ -597,16 +580,13 @@
             }
         });
 
-        // Image Upload
         elements.imageInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
             try {
-                // Show loading state
                 elements.profileImage.src = '/api/placeholder/120/120';
 
-                // Upload file to Supabase Storage
                 const fileExt = file.name.split('.').pop();
                 const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
                 const { data: uploadData, error: uploadError } = await supabase.storage
@@ -615,12 +595,10 @@
 
                 if (uploadError) throw uploadError;
 
-                // Get public URL
                 const { data: { publicUrl } } = supabase.storage
                     .from('profile-images')
                     .getPublicUrl(fileName);
 
-                // Update profile in database
                 const { error: updateError } = await supabase
                     .from('users')
                     .update({ photo_url: publicUrl })
@@ -628,7 +606,6 @@
 
                 if (updateError) throw updateError;
 
-                // Update UI
                 elements.profileImage.src = publicUrl;
                 if (!selectedUser) {
                     elements.chatUserAvatar.innerHTML = `<img src="${publicUrl}" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%;">`;
@@ -640,7 +617,6 @@
             }
         });
 
-        // Users Management
         async function loadUsers() {
             try {
                 const { data: users, error } = await supabase
@@ -679,7 +655,6 @@
             return div;
         }
 
-        // Chat Management
         function selectUser(user) {
             selectedUser = user;
             elements.chatUserName.textContent = user.name;
@@ -691,7 +666,6 @@
         }
 
         async function setupMessaging() {
-            // Remove any existing listeners to prevent duplicates
             elements.sendButton.removeEventListener('click', sendMessage);
             elements.messageInput.removeEventListener('keypress', handleEnterKey);
 
@@ -708,8 +682,7 @@
 
             try {
                 const messageText = elements.messageInput.value.trim();
-                elements.messageInput.value = ''; // Clear input immediately
-
+                elements.messageInput.value = '';
                 const message = {
                     chat_id: getChatId(currentUser.id, selectedUser.id),
                     sender_id: currentUser.id,
@@ -717,7 +690,6 @@
                     created_at: new Date().toISOString()
                 };
 
-                // Optimistically add message to UI
                 const messageElement = createMessageElement(message);
                 elements.messagesContainer.appendChild(messageElement);
                 elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
@@ -735,7 +707,6 @@
         async function loadMessages() {
             if (!selectedUser) return;
 
-            // Unsubscribe from previous subscription
             if (messageSubscription) {
                 await messageSubscription.unsubscribe();
             }
@@ -744,7 +715,6 @@
             elements.messagesContainer.innerHTML = '';
 
             try {
-                // Load existing messages
                 const { data: messages, error } = await supabase
                     .from('messages')
                     .select('*')
@@ -760,7 +730,6 @@
 
                 elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
 
-                // Set up real-time subscription
                 messageSubscription = supabase
                     .channel(`chat:${chatId}`)
                     .on('postgres_changes',
@@ -796,7 +765,6 @@
             return div;
         }
 
-        // Utility Functions
         function getAvatarLetter(email) {
             return email ? email[0].toUpperCase() : '?';
         }
@@ -816,7 +784,6 @@
                 showAuth();
             }
         });
-        // Show initial screen
         showAuth();
     </script>
 </body>
