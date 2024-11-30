@@ -484,6 +484,11 @@
             </button>
         </div>
         <div class="users-list" id="usersList"></div>
+        <div id="usersLoadingOverlay" class="loading-overlay">
+            <div class="loading-spinner">
+                <div class="spinner-circle"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -539,7 +544,8 @@
 
 
         function showLoading(show) {
-            loadingOverlay.classList[show ? 'add' : 'remove']('active');
+            const overlay = document.getElementById('usersLoadingOverlay');
+            overlay.classList[show ? 'add' : 'remove']('active');
         }
 
 
@@ -647,60 +653,63 @@
 
 
         function loadUsers() {
-    const lastMessagesPromises = [];
+            showLoading(true); // Show loading spinner
 
-    database.ref('users').on('value', snapshot => {
-        elements.usersList.innerHTML = '';
+            const lastMessagesPromises = [];
 
-        snapshot.forEach(childSnapshot => {
-            const user = childSnapshot.val();
-            const userId = childSnapshot.key;
+            database.ref('users').on('value', snapshot => {
+                elements.usersList.innerHTML = '';
 
-            if (userId !== currentUser.uid) {
-                const chatId = getChatId(currentUser.uid, userId);
-                const promise = database.ref('chats/' + chatId)
-                    .limitToLast(1)
-                    .once('value')
-                    .then(messageSnap => {
-                        let lastMessage = '';
-                        messageSnap.forEach(msgChild => {
-                            lastMessage = msgChild.val().text;
-                        });
-                        return { userId, lastMessage };
-                    });
+                snapshot.forEach(childSnapshot => {
+                    const user = childSnapshot.val();
+                    const userId = childSnapshot.key;
 
-                lastMessagesPromises.push(promise);
-                const userElement = createUserElement(user, userId, 'Loading...');
-                elements.usersList.appendChild(userElement);
-                setupLastMessageListener(userId, userElement);
-            }
-        });
+                    if (userId !== currentUser.uid) {
+                        const chatId = getChatId(currentUser.uid, userId);
+                        const promise = database.ref('chats/' + chatId)
+                            .limitToLast(1)
+                            .once('value')
+                            .then(messageSnap => {
+                                let lastMessage = '';
+                                messageSnap.forEach(msgChild => {
+                                    lastMessage = msgChild.val().text;
+                                });
+                                return { userId, lastMessage };
+                            });
 
-        Promise.all(lastMessagesPromises).then(results => {
-            results.forEach(({ userId, lastMessage }) => {
-                const userElement = document.querySelector(`[data-user-id="${userId}"]`);
-                if (userElement) {
-                    const lastMessageElement = userElement.querySelector('.last-message');
-                    if (lastMessageElement) {
-                        lastMessageElement.textContent = lastMessage || 'No messages yet';
+                        lastMessagesPromises.push(promise);
+                        const userElement = createUserElement(user, userId, 'Loading...');
+                        elements.usersList.appendChild(userElement);
+                        setupLastMessageListener(userId, userElement);
                     }
-                }
+                });
+
+                Promise.all(lastMessagesPromises).then(results => {
+                    results.forEach(({ userId, lastMessage }) => {
+                        const userElement = document.querySelector(`[data-user-id="${userId}"]`);
+                        if (userElement) {
+                            const lastMessageElement = userElement.querySelector('.last-message');
+                            if (lastMessageElement) {
+                                lastMessageElement.textContent = lastMessage || 'No messages yet';
+                            }
+                        }
+                    });
+                    showLoading(false); // Hide loading spinner after users are loaded
+                });
             });
-        });
-    });
 
-    usersStatusRef.on('value', snapshot => {
-        const onlineUsers = snapshot.val() || {};
+            usersStatusRef.on('value', snapshot => {
+                const onlineUsers = snapshot.val() || {};
 
-        document.querySelectorAll('.user-item').forEach(userElement => {
-            const userId = userElement.getAttribute('data-user-id');
-            const statusIndicator = userElement.querySelector('.status-indicator');
-            if (statusIndicator) {
-                statusIndicator.classList.toggle('online', !!onlineUsers[userId]);
-            }
-        });
-    });
-}
+                document.querySelectorAll('.user-item').forEach(userElement => {
+                    const userId = userElement.getAttribute('data-user-id');
+                    const statusIndicator = userElement.querySelector('.status-indicator');
+                    if (statusIndicator) {
+                        statusIndicator.classList.toggle('online', !!onlineUsers[userId]);
+                    }
+                });
+            });
+        }
 
 function createUserElement(user, userId, lastMessage = '') {
     const div = document.createElement('div');
