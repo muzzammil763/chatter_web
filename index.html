@@ -7,7 +7,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -100,25 +99,6 @@
         .auth-button.primary {
             background: #000;
             color: white;
-        }
-
-        .auth-button.secondary {
-            background: #f5f5f5;
-            color: #000;
-        }
-
-        .auth-switch {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .auth-switch a {
-            color: #000;
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
         }
 
         /* Chat Screen Styles */
@@ -254,61 +234,6 @@
         .user-item:hover {
             background: #f5f5f5;
         }
-
-        /* Profile Screen Styles */
-        .profile-screen {
-            background: #fff;
-        }
-
-        .profile-header {
-            background: #000;
-            color: white;
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .profile-content {
-            padding: 20px;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .profile-avatar {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            margin: 20px auto;
-            position: relative;
-            cursor: pointer;
-        }
-
-        .profile-avatar img {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .avatar-upload {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            background: #000;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            cursor: pointer;
-        }
-
-        #imageInput {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -328,8 +253,7 @@
                     <input type="password" id="passwordInput" placeholder="Enter your password">
                 </div>
                 <div class="auth-buttons">
-                    <button id="loginButton" class="auth-button primary">Sign In</button>
-                    <button id="registerButton" class="auth-button secondary">Create Account</button>
+                    <button id="continueButton" class="auth-button primary">Continue to App</button>
                 </div>
             </div>
         </div>
@@ -345,9 +269,6 @@
             <div class="header-actions">
                 <button class="header-button" onclick="showUsers()">
                     <i class="fas fa-users"></i>
-                </button>
-                <button class="header-button" onclick="showProfile()">
-                    <i class="fas fa-cog"></i>
                 </button>
             </div>
         </div>
@@ -371,24 +292,6 @@
         <div class="users-list" id="usersList"></div>
     </div>
 
-    <!-- Profile Screen -->
-    <div id="profileScreen" class="screen profile-screen">
-        <div class="profile-header">
-            <h2>Profile</h2>
-            <button class="header-button" onclick="showChat()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="profile-content">
-            <div class="profile-avatar" onclick="document.getElementById('imageInput').click()">
-                <img id="profileImage" src="/api/placeholder/120/120" alt="Profile">
-                <div class="avatar-upload">
-                    <i class="fas fa-camera"></i>
-                </div>
-            </div>
-            <input type="file" id="imageInput" accept="image/*">
-        </div>
-    </div>
     <script>
     // Firebase configuration
     const firebaseConfig = {
@@ -404,29 +307,24 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const database = firebase.database();
-    const storage = firebase.storage();
     
     // DOM Elements
     const screens = {
         auth: document.getElementById('authScreen'),
         chat: document.getElementById('chatScreen'),
-        users: document.getElementById('usersScreen'),
-        profile: document.getElementById('profileScreen')
+        users: document.getElementById('usersScreen')
     };
     
     const elements = {
         emailInput: document.getElementById('emailInput'),
         passwordInput: document.getElementById('passwordInput'),
-        loginButton: document.getElementById('loginButton'),
-        registerButton: document.getElementById('registerButton'),
+        continueButton: document.getElementById('continueButton'),
         messageInput: document.getElementById('messageInput'),
         sendButton: document.getElementById('sendButton'),
         messagesContainer: document.getElementById('messagesContainer'),
         usersList: document.getElementById('usersList'),
         chatUserAvatar: document.getElementById('chatUserAvatar'),
-        chatUserName: document.getElementById('chatUserName'),
-        profileImage: document.getElementById('profileImage'),
-        imageInput: document.getElementById('imageInput')
+        chatUserName: document.getElementById('chatUserName')
     };
     
     // Global State
@@ -439,85 +337,58 @@
         screens[screenId].classList.add('active');
     }
     
-    function showAuth() { showScreen('auth'); }
     function showChat() { showScreen('chat'); }
     function showUsers() { showScreen('users'); }
-    function showProfile() { showScreen('profile'); }
     
-    // Authentication Handlers
-    elements.loginButton.addEventListener('click', () => {
+    // Authentication Handler
+    elements.continueButton.addEventListener('click', () => {
         const email = elements.emailInput.value;
         const password = elements.passwordInput.value;
         
+        // Try to sign in first
         auth.signInWithEmailAndPassword(email, password)
-            .catch(error => alert(error.message));
-    });
-    
-    elements.registerButton.addEventListener('click', () => {
-        const email = elements.emailInput.value;
-        const password = elements.passwordInput.value;
-    
-        auth.createUserWithEmailAndPassword(email, password)
-            .then(userCredential => {
-                const user = userCredential.user;
-                const userData = {
-                    email: user.email,
-                    name: user.email.split('@')[0],
-                    uid: user.uid,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP,
-                    photoURL: null
-                };
-                return database.ref('users/' + user.uid).set(userData);
-            })
-            .catch(error => alert(error.message));
+            .catch(() => {
+                // If sign in fails, create a new account
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then(userCredential => {
+                        const user = userCredential.user;
+                        const userData = {
+                            email: user.email,
+                            name: user.email.split('@')[0],
+                            uid: user.uid,
+                            createdAt: firebase.database.ServerValue.TIMESTAMP
+                        };
+                        return database.ref('users/' + user.uid).set(userData);
+                    })
+                    .catch(error => alert(error.message));
+            });
     });
     
     // Auth State Observer
     auth.onAuthStateChanged((user) => {
         if (user) {
             currentUser = user;
-            loadUserProfile();
+            loadUserData();
             loadUsers();
             setupMessaging();
             showChat();
         } else {
             currentUser = null;
-            showAuth();
+            showScreen('auth');
         }
     });
     
-    // Profile Management
-    function loadUserProfile() {
+    // User Data Management
+    function loadUserData() {
         database.ref('users/' + currentUser.uid).once('value')
             .then(snapshot => {
-                const profile = snapshot.val();
-                if (profile) {
-                    elements.chatUserName.textContent = `${profile.name} (Myself)`;
-                    elements.chatUserAvatar.textContent = getAvatarLetter(profile.email);
-                    if (profile.photoURL) {
-                        elements.profileImage.src = profile.photoURL;
-                    }
+                const userData = snapshot.val();
+                if (userData) {
+                    elements.chatUserName.textContent = `${userData.name} (Myself)`;
+                    elements.chatUserAvatar.textContent = getAvatarLetter(userData.email);
                 }
             });
     }
-    
-    // Image Upload
-    elements.imageInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const storageRef = storage.ref();
-            const imageRef = storageRef.child(`profile-images/${currentUser.uid}`);
-            
-            imageRef.put(file).then(() => {
-                return imageRef.getDownloadURL();
-            }).then((url) => {
-                elements.profileImage.src = url;
-                return database.ref('users/' + currentUser.uid).update({
-                    photoURL: url
-                });
-            }).catch(error => alert(error.message));
-        }
-    });
     
     // Users Management
     function loadUsers() {
@@ -538,11 +409,7 @@
         const div = document.createElement('div');
         div.className = 'user-item';
         div.innerHTML = `
-            <div class="avatar">
-                ${user.photoURL ? 
-                    `<img src="${user.photoURL}" alt="${user.name}" style="width: 40px; height: 40px; border-radius: 50%;">` :
-                    getAvatarLetter(user.email)}
-            </div>
+            <div class="avatar">${getAvatarLetter(user.email)}</div>
             <span class="profile-name">${user.name}</span>
         `;
         div.addEventListener('click', () => {
@@ -557,9 +424,6 @@
         selectedUser = { ...user, uid: userId };
         elements.chatUserName.textContent = user.name;
         elements.chatUserAvatar.textContent = getAvatarLetter(user.email);
-        if (user.photoURL) {
-            elements.chatUserAvatar.innerHTML = `<img src="${user.photoURL}" alt="${user.name}" style="width: 40px; height: 40px; border-radius: 50%;">`;
-        }
         loadMessages(userId);
     }
     
@@ -611,8 +475,6 @@
     function getChatId(uid1, uid2) {
         return uid1 < uid2 ? `${uid1}-${uid2}` : `${uid2}-${uid1}`;
     }
-
     </script>
-
 </body>
 </html>
