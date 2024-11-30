@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat App</title>
-    <script src="https://unpkg.com/@supabase/supabase-js@2.39.7"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -22,8 +24,7 @@
 
         .screen {
             display: none;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
         }
 
         .screen.active {
@@ -120,6 +121,7 @@
             cursor: pointer;
         }
 
+        /* Chat Screen Styles */
         .chat-header {
             background: #000;
             color: white;
@@ -127,28 +129,6 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, .3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
         }
 
         .chat-user-info {
@@ -171,11 +151,6 @@
             font-size: 16px;
         }
 
-        .auth-button:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-
         .header-actions {
             display: flex;
             gap: 20px;
@@ -190,10 +165,9 @@
         }
 
         .messages-container {
-            margin-top: 70px;
-            height: calc(100vh - 140px);
-            overflow-y: auto;
+            height: calc(100vh - 130px);
             padding: 20px;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -217,16 +191,12 @@
             background: white;
             align-self: flex-start;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .input-area {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
             padding: 16px;
+            background: white;
             border-top: 1px solid #eee;
             display: flex;
             gap: 12px;
@@ -254,6 +224,7 @@
             cursor: pointer;
         }
 
+        /* Users Screen Styles */
         .users-screen {
             background: #fff;
         }
@@ -284,6 +255,7 @@
             background: #f5f5f5;
         }
 
+        /* Profile Screen Styles */
         .profile-screen {
             background: #fff;
         }
@@ -339,8 +311,8 @@
         }
     </style>
 </head>
-
 <body>
+    <!-- Auth Screen -->
     <div id="authScreen" class="screen auth-screen">
         <div class="auth-container">
             <div class="auth-logo">
@@ -363,6 +335,7 @@
         </div>
     </div>
 
+    <!-- Chat Screen -->
     <div id="chatScreen" class="screen">
         <div class="chat-header">
             <div class="chat-user-info">
@@ -387,6 +360,7 @@
         </div>
     </div>
 
+    <!-- Users Screen -->
     <div id="usersScreen" class="screen users-screen">
         <div class="users-header">
             <h2>All Users</h2>
@@ -397,6 +371,7 @@
         <div class="users-list" id="usersList"></div>
     </div>
 
+    <!-- Profile Screen -->
     <div id="profileScreen" class="screen profile-screen">
         <div class="profile-header">
             <h2>Profile</h2>
@@ -414,378 +389,230 @@
             <input type="file" id="imageInput" accept="image/*">
         </div>
     </div>
-
     <script>
-        console.log('Initializing app...');
-        const supabaseUrl = 'https://ugqokfdfjlatstubcqzj.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncW9rZmRmamxhdHN0dWJjcXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI4ODE0MDQsImV4cCI6MjA0ODQ1NzQwNH0.D4vXekLD3QB1dwu0zhbW9iqAnwMnC4_l9ldkJjYoXxo';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-        console.log('Supabase initialized:', supabase);
-
-        const screens = {
-            auth: document.getElementById('authScreen'),
-            chat: document.getElementById('chatScreen'),
-            users: document.getElementById('usersScreen'),
-            profile: document.getElementById('profileScreen')
-        };
-
-        const elements = {
-            emailInput: document.getElementById('emailInput'),
-            passwordInput: document.getElementById('passwordInput'),
-            loginButton: document.getElementById('loginButton'),
-            registerButton: document.getElementById('registerButton'),
-            messageInput: document.getElementById('messageInput'),
-            sendButton: document.getElementById('sendButton'),
-            messagesContainer: document.getElementById('messagesContainer'),
-            usersList: document.getElementById('usersList'),
-            chatUserAvatar: document.getElementById('chatUserAvatar'),
-            chatUserName: document.getElementById('chatUserName'),
-            profileImage: document.getElementById('profileImage'),
-            imageInput: document.getElementById('imageInput')
-        };
-
-        let currentUser = null;
-        let selectedUser = null;
-        let messageSubscription = null;
-
-        function showScreen(screenId) {
-            Object.values(screens).forEach(screen => screen.classList.remove('active'));
-            screens[screenId].classList.add('active');
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyAMfI4Qj93P2hI-z47ZAJ_0kg98GMwF4vw",
+        authDomain: "web-chatter-763.firebaseapp.com",
+        projectId: "web-chatter-763",
+        storageBucket: "web-chatter-763.firebasestorage.app",
+        messagingSenderId: "262486527894",
+        appId: "1:262486527894:web:64688ff7e1b6a6eb7357b7"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+    const storage = firebase.storage();
+    
+    // DOM Elements
+    const screens = {
+        auth: document.getElementById('authScreen'),
+        chat: document.getElementById('chatScreen'),
+        users: document.getElementById('usersScreen'),
+        profile: document.getElementById('profileScreen')
+    };
+    
+    const elements = {
+        emailInput: document.getElementById('emailInput'),
+        passwordInput: document.getElementById('passwordInput'),
+        loginButton: document.getElementById('loginButton'),
+        registerButton: document.getElementById('registerButton'),
+        messageInput: document.getElementById('messageInput'),
+        sendButton: document.getElementById('sendButton'),
+        messagesContainer: document.getElementById('messagesContainer'),
+        usersList: document.getElementById('usersList'),
+        chatUserAvatar: document.getElementById('chatUserAvatar'),
+        chatUserName: document.getElementById('chatUserName'),
+        profileImage: document.getElementById('profileImage'),
+        imageInput: document.getElementById('imageInput')
+    };
+    
+    // Global State
+    let currentUser = null;
+    let selectedUser = null;
+    
+    // Screen Management
+    function showScreen(screenId) {
+        Object.values(screens).forEach(screen => screen.classList.remove('active'));
+        screens[screenId].classList.add('active');
+    }
+    
+    function showAuth() { showScreen('auth'); }
+    function showChat() { showScreen('chat'); }
+    function showUsers() { showScreen('users'); }
+    function showProfile() { showScreen('profile'); }
+    
+    // Authentication Handlers
+    elements.loginButton.addEventListener('click', () => {
+        const email = elements.emailInput.value;
+        const password = elements.passwordInput.value;
+        
+        auth.signInWithEmailAndPassword(email, password)
+            .catch(error => alert(error.message));
+    });
+    
+    elements.registerButton.addEventListener('click', () => {
+        const email = elements.emailInput.value;
+        const password = elements.passwordInput.value;
+    
+        auth.createUserWithEmailAndPassword(email, password)
+            .then(userCredential => {
+                const user = userCredential.user;
+                const userData = {
+                    email: user.email,
+                    name: user.email.split('@')[0],
+                    uid: user.uid,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    photoURL: null
+                };
+                return database.ref('users/' + user.uid).set(userData);
+            })
+            .catch(error => alert(error.message));
+    });
+    
+    // Auth State Observer
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            currentUser = user;
+            loadUserProfile();
+            loadUsers();
+            setupMessaging();
+            showChat();
+        } else {
+            currentUser = null;
+            showAuth();
         }
-
-        function showAuth() {
-            console.log('Showing auth screen');
-            showScreen('auth');
-        } function showChat() { showScreen('chat'); }
-        function showUsers() { showScreen('users'); }
-        function showProfile() { showScreen('profile'); }
-
-        elements.loginButton.addEventListener('click', async () => {
-            const email = elements.emailInput.value;
-            const password = elements.passwordInput.value;
-
-            try {
-                elements.loginButton.disabled = true;
-                elements.loginButton.textContent = 'Signing in...';
-
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password
-                });
-
-                if (error) throw error;
-                elements.emailInput.value = '';
-                elements.passwordInput.value = '';
-
-            } catch (error) {
-                console.error('Login error:', error);
-                alert(error.message);
-            } finally {
-                elements.loginButton.disabled = false;
-                elements.loginButton.textContent = 'Sign In';
-            }
-        });
-
-
-        supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth state changed:', event, session);
-
-            if (session) {
-                currentUser = session.user;
-                localStorage.setItem('supabase.auth.token', session.access_token);
-
-                await loadUserProfile();
-                await loadUsers();
-                setupMessaging();
-                showChat();
-            } else {
-                currentUser = null;
-                if (messageSubscription) {
-                    messageSubscription.unsubscribe();
-                }
-                localStorage.removeItem('supabase.auth.token');
-                showAuth();
-            }
-        });
-        async function loadUserProfile() {
-            try {
-                const { data: profile, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (error) throw error;
-
+    });
+    
+    // Profile Management
+    function loadUserProfile() {
+        database.ref('users/' + currentUser.uid).once('value')
+            .then(snapshot => {
+                const profile = snapshot.val();
                 if (profile) {
                     elements.chatUserName.textContent = `${profile.name} (Myself)`;
                     elements.chatUserAvatar.textContent = getAvatarLetter(profile.email);
-                    if (profile.photo_url) {
-                        elements.profileImage.src = profile.photo_url;
-                        elements.chatUserAvatar.innerHTML = `<img src="${profile.photo_url}" alt="Profile" style="width: 40px; height: 40px; border-radius:50%;">`;
+                    if (profile.photoURL) {
+                        elements.profileImage.src = profile.photoURL;
                     }
                 }
-            } catch (error) {
-                console.error('Error loading profile:', error);
-                alert('Error loading profile: ' + error.message);
-            }
-        }
-
-        elements.registerButton.innerHTML = '<span class="spinner"></span>Creating Account';
-
-        elements.registerButton.addEventListener('click', async () => {
-            const email = elements.emailInput.value;
-            const password = elements.passwordInput.value;
-
-            if (!email || !password) {
-                alert('Please enter both email and password');
-                return;
-            }
-
-            try {
-                elements.registerButton.disabled = true;
-                elements.registerButton.textContent = 'Creating Account...';
-
-                const { data: authData, error: authError } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        data: { name: email.split('@')[0] }
-                    }
-                });
-
-                if (authError) throw authError;
-
-                if (authData.user) {
-                    const { error: userError } = await supabase
-                        .from('users')
-                        .insert([{
-                            id: authData.user.id,
-                            email: email,
-                            name: email.split('@')[0],
-                        }]);
-
-                    if (userError) throw userError;
-
-                    elements.emailInput.value = '';
-                    elements.passwordInput.value = '';
-                }
-            } catch (error) {
-                console.error('Signup error:', error);
-                alert(error.message);
-            } finally {
-                elements.registerButton.disabled = false;
-                elements.registerButton.textContent = 'Create Account';
-            }
-        });
-
-        elements.imageInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            try {
-                elements.profileImage.src = '/api/placeholder/120/120';
-
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('profile-images')
-                    .upload(fileName, file);
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('profile-images')
-                    .getPublicUrl(fileName);
-
-                const { error: updateError } = await supabase
-                    .from('users')
-                    .update({ photo_url: publicUrl })
-                    .eq('id', currentUser.id);
-
-                if (updateError) throw updateError;
-
-                elements.profileImage.src = publicUrl;
-                if (!selectedUser) {
-                    elements.chatUserAvatar.innerHTML = `<img src="${publicUrl}" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%;">`;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error uploading image: ' + error.message);
-                elements.profileImage.src = '/api/placeholder/120/120';
-            }
-        });
-
-        async function loadUsers() {
-            try {
-                const { data: users, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .neq('id', currentUser.id);
-
-                if (error) throw error;
-
-                elements.usersList.innerHTML = '';
-                users.forEach(user => {
-                    const userElement = createUserElement(user);
-                    elements.usersList.appendChild(userElement);
-                });
-            } catch (error) {
-                console.error('Error loading users:', error);
-                alert('Error loading users: ' + error.message);
-            }
-        }
-
-        function createUserElement(user) {
-            const div = document.createElement('div');
-            div.className = 'user-item';
-            div.innerHTML = `
-                <div class="avatar">
-                    ${user.photo_url ?
-                    `<img src="${user.photo_url}" alt="${user.name}" style="width: 40px; height: 40px; border-radius: 50%;">` :
-                    getAvatarLetter(user.email)}
-                </div>
-                <span class="profile-name">${user.name}</span>
-            `;
-            div.addEventListener('click', () => {
-                selectUser(user);
-                showChat();
             });
-            return div;
-        }
-
-        function selectUser(user) {
-            selectedUser = user;
-            elements.chatUserName.textContent = user.name;
-            elements.chatUserAvatar.textContent = getAvatarLetter(user.email);
-            if (user.photo_url) {
-                elements.chatUserAvatar.innerHTML = `<img src="${user.photo_url}" alt="${user.name}" style="width: 40px; height: 40px; border-radius: 50%;">`;
-            }
-            loadMessages();
-        }
-
-        async function setupMessaging() {
-            elements.sendButton.removeEventListener('click', sendMessage);
-            elements.messageInput.removeEventListener('keypress', handleEnterKey);
-
-            elements.sendButton.addEventListener('click', sendMessage);
-            elements.messageInput.addEventListener('keypress', handleEnterKey);
-        }
-
-        function handleEnterKey(e) {
-            if (e.key === 'Enter') sendMessage();
-        }
-
-        async function sendMessage() {
-            if (!selectedUser || !elements.messageInput.value.trim()) return;
-
-            try {
-                const messageText = elements.messageInput.value.trim();
-                elements.messageInput.value = '';
-                const message = {
-                    chat_id: getChatId(currentUser.id, selectedUser.id),
-                    sender_id: currentUser.id,
-                    text: messageText,
-                    created_at: new Date().toISOString()
-                };
-
-                const messageElement = createMessageElement(message);
-                elements.messagesContainer.appendChild(messageElement);
-                elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-
-                const { error } = await supabase
-                    .from('messages')
-                    .insert([message]);
-
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error sending message:', error);
-                alert('Error sending message: ' + error.message);
-            }
-        }
-        async function loadMessages() {
-            if (!selectedUser) return;
-
-            if (messageSubscription) {
-                await messageSubscription.unsubscribe();
-            }
-
-            const chatId = getChatId(currentUser.id, selectedUser.id);
-            elements.messagesContainer.innerHTML = '';
-
-            try {
-                const { data: messages, error } = await supabase
-                    .from('messages')
-                    .select('*')
-                    .eq('chat_id', chatId)
-                    .order('created_at', { ascending: true });
-
-                if (error) throw error;
-
-                messages.forEach(message => {
-                    const messageElement = createMessageElement(message);
-                    elements.messagesContainer.appendChild(messageElement);
+    }
+    
+    // Image Upload
+    elements.imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const storageRef = storage.ref();
+            const imageRef = storageRef.child(`profile-images/${currentUser.uid}`);
+            
+            imageRef.put(file).then(() => {
+                return imageRef.getDownloadURL();
+            }).then((url) => {
+                elements.profileImage.src = url;
+                return database.ref('users/' + currentUser.uid).update({
+                    photoURL: url
                 });
-
-                elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-
-                messageSubscription = supabase
-                    .channel(`chat:${chatId}`)
-                    .on('postgres_changes',
-                        {
-                            event: 'INSERT',
-                            schema: 'public',
-                            table: 'messages',
-                            filter: `chat_id=eq.${chatId}`
-                        },
-                        (payload) => {
-                            console.log('New message received:', payload);
-                            if (payload.new.sender_id !== currentUser.id) {
-                                const messageElement = createMessageElement(payload.new);
-                                elements.messagesContainer.appendChild(messageElement);
-                                elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-                            }
-                        }
-                    )
-                    .subscribe((status) => {
-                        console.log('Subscription status:', status);
-                    });
-
-            } catch (error) {
-                console.error('Error loading messages:', error);
-                alert('Error loading messages: ' + error.message);
-            }
+            }).catch(error => alert(error.message));
         }
-
-        function createMessageElement(message) {
-            const div = document.createElement('div');
-            div.className = `message ${message.sender_id === currentUser.id ? 'sent' : 'received'}`;
-            div.textContent = message.text;
-            return div;
-        }
-
-        function getAvatarLetter(email) {
-            return email ? email[0].toUpperCase() : '?';
-        }
-
-        function getChatId(uid1, uid2) {
-            return uid1 < uid2 ? `${uid1}-${uid2}` : `${uid2}-${uid1}`;
-        }
-
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                currentUser = session.user;
-                loadUserProfile();
-                loadUsers();
-                setupMessaging();
-                showChat();
-            } else {
-                showAuth();
-            }
+    });
+    
+    // Users Management
+    function loadUsers() {
+        database.ref('users').on('value', snapshot => {
+            elements.usersList.innerHTML = '';
+            snapshot.forEach(childSnapshot => {
+                const user = childSnapshot.val();
+                const userId = childSnapshot.key;
+                if (userId !== currentUser.uid) {
+                    const userElement = createUserElement(user, userId);
+                    elements.usersList.appendChild(userElement);
+                }
+            });
         });
-        showAuth();
-    </script>
-</body>
+    }
+    
+    function createUserElement(user, userId) {
+        const div = document.createElement('div');
+        div.className = 'user-item';
+        div.innerHTML = `
+            <div class="avatar">
+                ${user.photoURL ? 
+                    `<img src="${user.photoURL}" alt="${user.name}" style="width: 40px; height: 40px; border-radius: 50%;">` :
+                    getAvatarLetter(user.email)}
+            </div>
+            <span class="profile-name">${user.name}</span>
+        `;
+        div.addEventListener('click', () => {
+            selectUser(user, userId);
+            showChat();
+        });
+        return div;
+    }
+    
+    // Chat Management
+    function selectUser(user, userId) {
+        selectedUser = { ...user, uid: userId };
+        elements.chatUserName.textContent = user.name;
+        elements.chatUserAvatar.textContent = getAvatarLetter(user.email);
+        if (user.photoURL) {
+            elements.chatUserAvatar.innerHTML = `<img src="${user.photoURL}" alt="${user.name}" style="width: 40px; height: 40px; border-radius: 50%;">`;
+        }
+        loadMessages(userId);
+    }
+    
+    function setupMessaging() {
+        elements.sendButton.addEventListener('click', sendMessage);
+        elements.messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    }
+    
+    function sendMessage() {
+        if (!selectedUser || !elements.messageInput.value.trim()) return;
+    
+        const message = {
+            text: elements.messageInput.value.trim(),
+            senderId: currentUser.uid,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+    
+        const chatId = getChatId(currentUser.uid, selectedUser.uid);
+        database.ref('chats/' + chatId).push(message);
+        elements.messageInput.value = '';
+    }
+    
+    function loadMessages(userId) {
+        const chatId = getChatId(currentUser.uid, userId);
+        elements.messagesContainer.innerHTML = '';
+        
+        database.ref('chats/' + chatId).on('child_added', snapshot => {
+            const message = snapshot.val();
+            const messageElement = createMessageElement(message);
+            elements.messagesContainer.appendChild(messageElement);
+            elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+        });
+    }
+    
+    function createMessageElement(message) {
+        const div = document.createElement('div');
+        div.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
+        div.textContent = message.text;
+        return div;
+    }
+    
+    // Utility Functions
+    function getAvatarLetter(email) {
+        return email ? email[0].toUpperCase() : '?';
+    }
+    
+    function getChatId(uid1, uid2) {
+        return uid1 < uid2 ? `${uid1}-${uid2}` : `${uid2}-${uid1}`;
+    }
 
+    </script>
+
+</body>
 </html>
