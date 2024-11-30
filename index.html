@@ -772,12 +772,13 @@
             });
         });
 
-
         function loadMessages(userId) {
             const chatId = getChatId(currentUser.uid, userId);
             elements.messagesContainer.innerHTML = '';
 
-            database.ref('chats/' + chatId).on('child_added', snapshot => {
+            database.ref('chats/' + chatId).off('child_added');
+
+    database.ref('chats/' + chatId).on('child_added', snapshot => {
                 const message = snapshot.val();
                 const messageElement = createMessageElement(message);
                 elements.messagesContainer.appendChild(messageElement);
