@@ -565,7 +565,6 @@
 
             auth.signInWithEmailAndPassword(email, password)
                 .catch(() => {
-                    // If sign in fails, create a new account
                     return auth.createUserWithEmailAndPassword(email, password)
                         .then(userCredential => {
                             const user = userCredential.user;
@@ -590,7 +589,7 @@
                 currentUser = user;
                 loadUserData();
                 setupOnlineStatus();
-                setupStatusListeners(); // Add this line
+                setupStatusListeners();
                 loadUsers();
                 setupMessaging();
                 showUsers();
@@ -605,7 +604,6 @@
                 .then(snapshot => {
                     const userData = snapshot.val();
                     if (userData) {
-                        // Update both chat header and current user info in users screen
                         currentUserElements.name.textContent = userData.name;
                         currentUserElements.avatar.textContent = getAvatarLetter(userData.email);
                     }
@@ -653,7 +651,7 @@
 
 
         function loadUsers() {
-            showLoading(true); // Show loading spinner
+            showLoading(true);
 
             const lastMessagesPromises = [];
 
@@ -694,7 +692,7 @@
                             }
                         }
                     });
-                    showLoading(false); // Hide loading spinner after users are loaded
+                    showLoading(false);
                 });
             });
 
@@ -711,11 +709,11 @@
             });
         }
 
-function createUserElement(user, userId, lastMessage = '') {
-    const div = document.createElement('div');
-    div.className = 'user-item';
-    div.setAttribute('data-user-id', userId);
-    div.innerHTML = `
+        function createUserElement(user, userId, lastMessage = '') {
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            div.setAttribute('data-user-id', userId);
+            div.innerHTML = `
         <div class="user-item-left">
             <div class="avatar">${getAvatarLetter(user.email)}</div>
         </div>
@@ -728,15 +726,14 @@ function createUserElement(user, userId, lastMessage = '') {
         </div>
     `;
 
-    div.addEventListener('click', () => {
-        selectUser(user, userId);
-        showChat();
-    });
+            div.addEventListener('click', () => {
+                selectUser(user, userId);
+                showChat();
+            });
 
-    return div;
-}
+            return div;
+        }
 
-        // Chat Management
         function selectUser(user, userId) {
             selectedUser = { ...user, uid: userId };
             elements.chatUserName.textContent = user.name;
@@ -785,7 +782,7 @@ function createUserElement(user, userId, lastMessage = '') {
 
             database.ref('chats/' + chatId).off('child_added');
 
-    database.ref('chats/' + chatId).on('child_added', snapshot => {
+            database.ref('chats/' + chatId).on('child_added', snapshot => {
                 const message = snapshot.val();
                 const messageElement = createMessageElement(message);
                 elements.messagesContainer.appendChild(messageElement);
@@ -834,19 +831,15 @@ function createUserElement(user, userId, lastMessage = '') {
         function setupOnlineStatus() {
             const userStatusRef = database.ref('status/' + currentUser.uid);
 
-            // Set up presence handling
             connectedRef.on('value', (snap) => {
                 if (snap.val() === true) {
-                    // Clear previous onDisconnect handlers
                     userStatusRef.onDisconnect().cancel();
 
-                    // Set up new disconnect handler
                     userStatusRef.onDisconnect().set({
                         state: 'offline',
                         lastChanged: firebase.database.ServerValue.TIMESTAMP
                     });
 
-                    // Set online status
                     userStatusRef.set({
                         state: 'online',
                         lastChanged: firebase.database.ServerValue.TIMESTAMP
@@ -854,7 +847,6 @@ function createUserElement(user, userId, lastMessage = '') {
                 }
             });
 
-            // Handle page visibility changes
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
                     userStatusRef.set({
@@ -868,8 +860,6 @@ function createUserElement(user, userId, lastMessage = '') {
                     });
                 }
             });
-
-            // Handle before unload
             window.addEventListener('beforeunload', () => {
                 userStatusRef.set({
                     state: 'offline',
