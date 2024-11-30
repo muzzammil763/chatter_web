@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,33 +17,47 @@
             font-family: 'Segoe UI', sans-serif;
         }
 
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+
         body {
             background: #f5f5f5;
-            min-height: 100vh;
         }
 
         .screen {
             display: none;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .screen.active {
-            display: block;
+            display: flex;
+            flex-direction: column;
         }
+
 
         .auth-screen {
             background: #fff;
-            padding: 40px 20px;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
 
         .auth-container {
+            width: 100%;
             max-width: 400px;
-            margin: 0 auto;
-            padding: 40px;
+            padding: 20px;
             background: #fff;
+            border: 1px solid #666;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
 
         .auth-logo {
             text-align: center;
@@ -58,25 +73,32 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            margin: 20px;
         }
 
         .input-group {
             display: flex;
+
             flex-direction: column;
             gap: 8px;
         }
 
         .input-group label {
             font-size: 14px;
-            color: #666;
+            color: #000;
             font-weight: 500;
         }
 
         .input-group input {
             padding: 12px;
-            border: 1px solid #ddd;
+            border: 1px solid #555;
             border-radius: 8px;
             font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            border-color: #000;
         }
 
         .auth-buttons {
@@ -101,7 +123,6 @@
             color: white;
         }
 
-        /* Chat Screen Styles */
         .chat-header {
             background: #000;
             color: white;
@@ -171,7 +192,7 @@
             background: white;
             align-self: flex-start;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .input-area {
@@ -204,7 +225,6 @@
             cursor: pointer;
         }
 
-        /* Users Screen Styles */
         .users-screen {
             background: #fff;
         }
@@ -234,10 +254,45 @@
         .user-item:hover {
             background: #f5f5f5;
         }
+
+        @media screen and (max-width: 768px) {
+            .messages-container {
+                height: calc(100dvh - 140px);
+                padding: 10px;
+                margin-bottom: auto;
+            }
+
+            .chat-header {
+                padding: 12px;
+            }
+
+            .input-area {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 8px;
+                background: white;
+                border-top: 1px solid #eee;
+            }
+
+            .messages-container {
+                padding-bottom: 70px;
+            }
+
+            .message-input {
+                padding: 8px 12px;
+            }
+
+            .send-button {
+                width: 40px;
+                height: 40px;
+            }
+        }
     </style>
 </head>
+
 <body>
-    <!-- Auth Screen -->
     <div id="authScreen" class="screen auth-screen">
         <div class="auth-container">
             <div class="auth-logo">
@@ -259,7 +314,6 @@
         </div>
     </div>
 
-    <!-- Chat Screen -->
     <div id="chatScreen" class="screen">
         <div class="chat-header">
             <div class="chat-user-info">
@@ -269,6 +323,9 @@
             <div class="header-actions">
                 <button class="header-button" onclick="showUsers()">
                     <i class="fas fa-users"></i>
+                </button>
+                <button class="header-button" onclick="confirmSignOut()">
+                    <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
         </div>
@@ -281,7 +338,6 @@
         </div>
     </div>
 
-    <!-- Users Screen -->
     <div id="usersScreen" class="screen users-screen">
         <div class="users-header">
             <h2>All Users</h2>
@@ -293,188 +349,198 @@
     </div>
 
     <script>
-    // Firebase configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyAMfI4Qj93P2hI-z47ZAJ_0kg98GMwF4vw",
-        authDomain: "web-chatter-763.firebaseapp.com",
-        projectId: "web-chatter-763",
-        storageBucket: "web-chatter-763.firebasestorage.app",
-        messagingSenderId: "262486527894",
-        appId: "1:262486527894:web:64688ff7e1b6a6eb7357b7"
-    };
-    
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const database = firebase.database();
-    
-    // DOM Elements
-    const screens = {
-        auth: document.getElementById('authScreen'),
-        chat: document.getElementById('chatScreen'),
-        users: document.getElementById('usersScreen')
-    };
-    
-    const elements = {
-        emailInput: document.getElementById('emailInput'),
-        passwordInput: document.getElementById('passwordInput'),
-        continueButton: document.getElementById('continueButton'),
-        messageInput: document.getElementById('messageInput'),
-        sendButton: document.getElementById('sendButton'),
-        messagesContainer: document.getElementById('messagesContainer'),
-        usersList: document.getElementById('usersList'),
-        chatUserAvatar: document.getElementById('chatUserAvatar'),
-        chatUserName: document.getElementById('chatUserName')
-    };
-    
-    // Global State
-    let currentUser = null;
-    let selectedUser = null;
-    
-    // Screen Management
-    function showScreen(screenId) {
-        Object.values(screens).forEach(screen => screen.classList.remove('active'));
-        screens[screenId].classList.add('active');
-    }
-    
-    function showChat() { showScreen('chat'); }
-    function showUsers() { showScreen('users'); }
-    
-    // Authentication Handler
-    elements.continueButton.addEventListener('click', () => {
-        const email = elements.emailInput.value;
-        const password = elements.passwordInput.value;
-        
-        // Try to sign in first
-        auth.signInWithEmailAndPassword(email, password)
-            .catch(() => {
-                // If sign in fails, create a new account
-                auth.createUserWithEmailAndPassword(email, password)
-                    .then(userCredential => {
-                        const user = userCredential.user;
-                        const userData = {
-                            email: user.email,
-                            name: user.email.split('@')[0],
-                            uid: user.uid,
-                            createdAt: firebase.database.ServerValue.TIMESTAMP
-                        };
-                        return database.ref('users/' + user.uid).set(userData);
-                    })
-                    .catch(error => alert(error.message));
-            });
-    });
-    
-    // Auth State Observer
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            currentUser = user;
-            loadUserData();
-            loadUsers();
-            setupMessaging();
-            showChat();
-        } else {
-            currentUser = null;
-            showScreen('auth');
+        const firebaseConfig = {
+            apiKey: "AIzaSyAMfI4Qj93P2hI-z47ZAJ_0kg98GMwF4vw",
+            authDomain: "web-chatter-763.firebaseapp.com",
+            projectId: "web-chatter-763",
+            storageBucket: "web-chatter-763.firebasestorage.app",
+            messagingSenderId: "262486527894",
+            appId: "1:262486527894:web:64688ff7e1b6a6eb7357b7"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        const screens = {
+            auth: document.getElementById('authScreen'),
+            chat: document.getElementById('chatScreen'),
+            users: document.getElementById('usersScreen')
+        };
+
+        const elements = {
+            emailInput: document.getElementById('emailInput'),
+            passwordInput: document.getElementById('passwordInput'),
+            continueButton: document.getElementById('continueButton'),
+            messageInput: document.getElementById('messageInput'),
+            sendButton: document.getElementById('sendButton'),
+            messagesContainer: document.getElementById('messagesContainer'),
+            usersList: document.getElementById('usersList'),
+            chatUserAvatar: document.getElementById('chatUserAvatar'),
+            chatUserName: document.getElementById('chatUserName')
+        };
+
+        let currentUser = null;
+        let selectedUser = null;
+
+        function showScreen(screenId) {
+            Object.values(screens).forEach(screen => screen.classList.remove('active'));
+            screens[screenId].classList.add('active');
         }
-    });
-    
-    // User Data Management
-    function loadUserData() {
-        database.ref('users/' + currentUser.uid).once('value')
-            .then(snapshot => {
-                const userData = snapshot.val();
-                if (userData) {
-                    elements.chatUserName.textContent = `${userData.name} (Myself)`;
-                    elements.chatUserAvatar.textContent = getAvatarLetter(userData.email);
-                }
-            });
-    }
-    
-    // Users Management
-    function loadUsers() {
-        database.ref('users').on('value', snapshot => {
-            elements.usersList.innerHTML = '';
-            snapshot.forEach(childSnapshot => {
-                const user = childSnapshot.val();
-                const userId = childSnapshot.key;
-                if (userId !== currentUser.uid) {
-                    const userElement = createUserElement(user, userId);
-                    elements.usersList.appendChild(userElement);
-                }
-            });
+
+        function showChat() { showScreen('chat'); }
+        function showUsers() { showScreen('users'); }
+
+        elements.continueButton.addEventListener('click', () => {
+            const email = elements.emailInput.value;
+            const password = elements.passwordInput.value;
+
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(() => {
+                    auth.createUserWithEmailAndPassword(email, password)
+                        .then(userCredential => {
+                            const user = userCredential.user;
+                            const userData = {
+                                email: user.email,
+                                name: user.email.split('@')[0],
+                                uid: user.uid,
+                                createdAt: firebase.database.ServerValue.TIMESTAMP
+                            };
+                            return database.ref('users/' + user.uid).set(userData);
+                        })
+                        .catch(error => alert(error.message));
+                });
         });
-    }
-    
-    function createUserElement(user, userId) {
-        const div = document.createElement('div');
-        div.className = 'user-item';
-        div.innerHTML = `
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                loadUserData();
+                loadUsers();
+                setupMessaging();
+                showChat();
+            } else {
+                currentUser = null;
+                showScreen('auth');
+            }
+        });
+
+        function loadUserData() {
+            database.ref('users/' + currentUser.uid).once('value')
+                .then(snapshot => {
+                    const userData = snapshot.val();
+                    if (userData) {
+                        elements.chatUserName.textContent = `${userData.name} (Myself)`;
+                        elements.chatUserAvatar.textContent = getAvatarLetter(userData.email);
+                    }
+                });
+        }
+
+        function loadUsers() {
+            database.ref('users').on('value', snapshot => {
+                elements.usersList.innerHTML = '';
+                snapshot.forEach(childSnapshot => {
+                    const user = childSnapshot.val();
+                    const userId = childSnapshot.key;
+                    if (userId !== currentUser.uid) {
+                        const userElement = createUserElement(user, userId);
+                        elements.usersList.appendChild(userElement);
+                    }
+                });
+            });
+        }
+
+        function createUserElement(user, userId) {
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            div.innerHTML = `
             <div class="avatar">${getAvatarLetter(user.email)}</div>
             <span class="profile-name">${user.name}</span>
         `;
-        div.addEventListener('click', () => {
-            selectUser(user, userId);
-            showChat();
-        });
-        return div;
-    }
-    
-    // Chat Management
-    function selectUser(user, userId) {
-        selectedUser = { ...user, uid: userId };
-        elements.chatUserName.textContent = user.name;
-        elements.chatUserAvatar.textContent = getAvatarLetter(user.email);
-        loadMessages(userId);
-    }
-    
-    function setupMessaging() {
-        elements.sendButton.addEventListener('click', sendMessage);
-        elements.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-    }
-    
-    function sendMessage() {
-        if (!selectedUser || !elements.messageInput.value.trim()) return;
-    
-        const message = {
-            text: elements.messageInput.value.trim(),
-            senderId: currentUser.uid,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        };
-    
-        const chatId = getChatId(currentUser.uid, selectedUser.uid);
-        database.ref('chats/' + chatId).push(message);
-        elements.messageInput.value = '';
-    }
-    
-    function loadMessages(userId) {
-        const chatId = getChatId(currentUser.uid, userId);
-        elements.messagesContainer.innerHTML = '';
-        
-        database.ref('chats/' + chatId).on('child_added', snapshot => {
-            const message = snapshot.val();
-            const messageElement = createMessageElement(message);
-            elements.messagesContainer.appendChild(messageElement);
-            elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-        });
-    }
-    
-    function createMessageElement(message) {
-        const div = document.createElement('div');
-        div.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
-        div.textContent = message.text;
-        return div;
-    }
-    
-    // Utility Functions
-    function getAvatarLetter(email) {
-        return email ? email[0].toUpperCase() : '?';
-    }
-    
-    function getChatId(uid1, uid2) {
-        return uid1 < uid2 ? `${uid1}-${uid2}` : `${uid2}-${uid1}`;
-    }
+            div.addEventListener('click', () => {
+                selectUser(user, userId);
+                showChat();
+            });
+            return div;
+        }
+
+        // Chat Management
+        function selectUser(user, userId) {
+            selectedUser = { ...user, uid: userId };
+            elements.chatUserName.textContent = user.name;
+            elements.chatUserAvatar.textContent = getAvatarLetter(user.email);
+            loadMessages(userId);
+        }
+
+        function setupMessaging() {
+            elements.sendButton.addEventListener('click', sendMessage);
+            elements.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        }
+
+        function sendMessage() {
+            if (!selectedUser || !elements.messageInput.value.trim()) return;
+
+            const message = {
+                text: elements.messageInput.value.trim(),
+                senderId: currentUser.uid,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            const chatId = getChatId(currentUser.uid, selectedUser.uid);
+            database.ref('chats/' + chatId).push(message);
+            elements.messageInput.value = '';
+        }
+
+        function loadMessages(userId) {
+            const chatId = getChatId(currentUser.uid, userId);
+            elements.messagesContainer.innerHTML = '';
+
+            database.ref('chats/' + chatId).on('child_added', snapshot => {
+                const message = snapshot.val();
+                const messageElement = createMessageElement(message);
+                elements.messagesContainer.appendChild(messageElement);
+                elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+            });
+        }
+
+        function createMessageElement(message) {
+            const div = document.createElement('div');
+            div.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
+            div.textContent = message.text;
+            return div;
+        }
+
+        function confirmSignOut() {
+            if (confirm('Are you sure you want to sign out?')) {
+                signOut();
+            }
+        }
+
+        function signOut() {
+            auth.signOut()
+                .then(() => {
+                    elements.messagesContainer.innerHTML = '';
+                    elements.usersList.innerHTML = '';
+                    selectedUser = null;
+
+                    showScreen('auth');
+
+                    elements.emailInput.value = '';
+                    elements.passwordInput.value = '';
+                })
+                .catch(error => alert(error.message));
+        }
+
+        function getAvatarLetter(email) {
+            return email ? email[0].toUpperCase() : '?';
+        }
+
+        function getChatId(uid1, uid2) {
+            return uid1 < uid2 ? `${uid1}-${uid2}` : `${uid2}-${uid1}`;
+        }
     </script>
 </body>
+
 </html>
