@@ -190,7 +190,7 @@
         }
 
         .message.received {
-            background: white;
+            background: #f5f5f5;
             align-self: flex-start;
             border-bottom-left-radius: 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -647,68 +647,66 @@
 
 
         function loadUsers() {
-            const lastMessagesPromises = [];
+    const lastMessagesPromises = [];
 
-            database.ref('users').on('value', snapshot => {
-                elements.usersList.innerHTML = '';
+    database.ref('users').on('value', snapshot => {
+        elements.usersList.innerHTML = '';
 
-                snapshot.forEach(childSnapshot => {
-                    const user = childSnapshot.val();
-                    const userId = childSnapshot.key;
+        snapshot.forEach(childSnapshot => {
+            const user = childSnapshot.val();
+            const userId = childSnapshot.key;
 
-                    if (userId !== currentUser.uid) {
-                        const chatId = getChatId(currentUser.uid, userId);
-                        const promise = database.ref('chats/' + chatId)
-                            .limitToLast(1)
-                            .once('value')
-                            .then(messageSnap => {
-                                let lastMessage = '';
-                                messageSnap.forEach(msgChild => {
-                                    lastMessage = msgChild.val().text;
-                                });
-                                return { userId, lastMessage };
-                            });
-
-                        lastMessagesPromises.push(promise);
-                        const userElement = createUserElement(user, userId, 'Loading...');
-                        elements.usersList.appendChild(userElement);
-                        setupLastMessageListener(userId, userElement);
-
-                    }
-                });
-
-                Promise.all(lastMessagesPromises).then(results => {
-                    results.forEach(({ userId, lastMessage }) => {
-                        const userElement = document.querySelector(`[data-user-id="${userId}"]`);
-                        if (userElement) {
-                            const lastMessageElement = userElement.querySelector('.last-message');
-                            if (lastMessageElement) {
-                                lastMessageElement.textContent = lastMessage || 'No messages yet';
-                            }
-                        }
+            if (userId !== currentUser.uid) {
+                const chatId = getChatId(currentUser.uid, userId);
+                const promise = database.ref('chats/' + chatId)
+                    .limitToLast(1)
+                    .once('value')
+                    .then(messageSnap => {
+                        let lastMessage = '';
+                        messageSnap.forEach(msgChild => {
+                            lastMessage = msgChild.val().text;
+                        });
+                        return { userId, lastMessage };
                     });
-                });
-            });
 
+                lastMessagesPromises.push(promise);
+                const userElement = createUserElement(user, userId, 'Loading...');
+                elements.usersList.appendChild(userElement);
+                setupLastMessageListener(userId, userElement);
+            }
+        });
 
-            usersStatusRef.on('value', snapshot => {
-                const onlineUsers = snapshot.val() || {};
-
-                document.querySelectorAll('.user-item').forEach(userElement => {
-                    const userId = userElement.getAttribute('data-user-id');
-                    const statusIndicator = userElement.querySelector('.status-indicator');
-                    if (statusIndicator) {
-                        statusIndicator.classList.toggle('online', !!onlineUsers[userId]);
+        Promise.all(lastMessagesPromises).then(results => {
+            results.forEach(({ userId, lastMessage }) => {
+                const userElement = document.querySelector(`[data-user-id="${userId}"]`);
+                if (userElement) {
+                    const lastMessageElement = userElement.querySelector('.last-message');
+                    if (lastMessageElement) {
+                        lastMessageElement.textContent = lastMessage || 'No messages yet';
                     }
-                });
+                }
             });
-        }
+        });
+    });
 
-        function createUserElement(user, userId, lastMessage = '') {
-            const div = document.createElement('div');
-            div.className = 'user-item';
-            div.setAttribute('data-user-id', userId);
-            div.innerHTML = `
+    usersStatusRef.on('value', snapshot => {
+        const onlineUsers = snapshot.val() || {};
+
+        document.querySelectorAll('.user-item').forEach(userElement => {
+            const userId = userElement.getAttribute('data-user-id');
+            const statusIndicator = userElement.querySelector('.status-indicator');
+            if (statusIndicator) {
+                statusIndicator.classList.toggle('online', !!onlineUsers[userId]);
+            }
+        });
+    });
+}
+
+function createUserElement(user, userId, lastMessage = '') {
+    const div = document.createElement('div');
+    div.className = 'user-item';
+    div.setAttribute('data-user-id', userId);
+    div.innerHTML = `
         <div class="user-item-left">
             <div class="avatar">${getAvatarLetter(user.email)}</div>
         </div>
@@ -721,13 +719,13 @@
         </div>
     `;
 
-            div.addEventListener('click', () => {
-                selectUser(user, userId);
-                showChat();
-            });
+    div.addEventListener('click', () => {
+        selectUser(user, userId);
+        showChat();
+    });
 
-            return div;
-        }
+    return div;
+}
 
         // Chat Management
         function selectUser(user, userId) {
