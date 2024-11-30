@@ -227,6 +227,9 @@
 
         .users-screen {
             background: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
 
         .users-header {
@@ -236,10 +239,20 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .users-header h2 {
+            flex: 1;
         }
 
         .users-list {
             padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+            padding-bottom: 20px;
         }
 
         .user-item {
@@ -256,6 +269,11 @@
         }
 
         @media screen and (max-width: 768px) {
+            .users-list {
+                height: calc(100dvh - 60px);
+                -webkit-overflow-scrolling: touch;
+            }
+
             .messages-container {
                 height: calc(100dvh - 140px);
                 padding: 10px;
@@ -289,6 +307,55 @@
                 height: 40px;
             }
         }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .spinner-circle {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .spinner-text {
+            color: #000;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -312,20 +379,23 @@
                 </div>
             </div>
         </div>
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="loading-spinner">
+                <div class="spinner-circle"></div>
+                <div class="spinner-text">Connecting to Chat...</div>
+            </div>
+        </div>
     </div>
 
     <div id="chatScreen" class="screen">
         <div class="chat-header">
             <div class="chat-user-info">
                 <div class="avatar" id="chatUserAvatar">?</div>
-                <span id="chatUserName">You (Myself)</span>
+                <span id="chatUserName">Select a user</span>
             </div>
             <div class="header-actions">
                 <button class="header-button" onclick="showUsers()">
                     <i class="fas fa-users"></i>
-                </button>
-                <button class="header-button" onclick="confirmSignOut()">
-                    <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
         </div>
@@ -341,8 +411,8 @@
     <div id="usersScreen" class="screen users-screen">
         <div class="users-header">
             <h2>All Users</h2>
-            <button class="header-button" onclick="showChat()">
-                <i class="fas fa-times"></i>
+            <button class="header-button" onclick="confirmSignOut()">
+                <i class="fas fa-sign-out-alt"></i>
             </button>
         </div>
         <div class="users-list" id="usersList"></div>
@@ -368,6 +438,9 @@
             users: document.getElementById('usersScreen')
         };
 
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+
         const elements = {
             emailInput: document.getElementById('emailInput'),
             passwordInput: document.getElementById('passwordInput'),
@@ -388,6 +461,11 @@
             screens[screenId].classList.add('active');
         }
 
+        function showLoading(show) {
+            loadingOverlay.classList[show ? 'add' : 'remove']('active');
+        }
+
+
         function showChat() { showScreen('chat'); }
         function showUsers() { showScreen('users'); }
 
@@ -395,9 +473,17 @@
             const email = elements.emailInput.value;
             const password = elements.passwordInput.value;
 
+            if (!email || !password) {
+                alert('Please enter both email and password');
+                return;
+            }
+
+            showLoading(true);
+
             auth.signInWithEmailAndPassword(email, password)
                 .catch(() => {
-                    auth.createUserWithEmailAndPassword(email, password)
+                    // If sign in fails, create a new account
+                    return auth.createUserWithEmailAndPassword(email, password)
                         .then(userCredential => {
                             const user = userCredential.user;
                             const userData = {
@@ -407,18 +493,22 @@
                                 createdAt: firebase.database.ServerValue.TIMESTAMP
                             };
                             return database.ref('users/' + user.uid).set(userData);
-                        })
-                        .catch(error => alert(error.message));
+                        });
+                })
+                .catch(error => {
+                    showLoading(false);
+                    alert(error.message);
                 });
         });
 
         auth.onAuthStateChanged((user) => {
+            showLoading(false);
             if (user) {
                 currentUser = user;
                 loadUserData();
                 loadUsers();
                 setupMessaging();
-                showChat();
+                showUsers();
             } else {
                 currentUser = null;
                 showScreen('auth');
@@ -470,6 +560,7 @@
             elements.chatUserName.textContent = user.name;
             elements.chatUserAvatar.textContent = getAvatarLetter(user.email);
             loadMessages(userId);
+            showChat();
         }
 
         function setupMessaging() {
